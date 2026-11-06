@@ -1,0 +1,894 @@
+
+        let produkMap = {};
+let produkList = [];
+let cart = {};
+let customerResult = [];
+let selectedCustomer = null;
+let currentTotal = 0;
+let isSaving = false;
+
+        fetch('/api/produk-kasir')
+            .then(res => res.json())
+            .then(data => {
+                produkList = data;
+                data.forEach(item => {
+                    produkMap[item.kode_produk] = item;
+                });
+                renderProductGrid(produkList);
+            })
+            .catch(err => {
+                console.error('Gagal memuat produk:', err);
+            });
+
+        // LOAD CUSTOMER
+
+
+        function renderProductGrid(items) {
+            const grid = document.getElementById('product-grid');
+            if (items.length === 0) {
+                grid.innerHTML = '<div class="col-span-full py-12 text-center text-slate-400 text-xs">Produk tidak ditemukan.</div>';
+                return;
+            }
+
+            grid.innerHTML = items.map(item => `
+                <div onclick="addToCart('${item.kode_produk}')" 
+                     class="bg-white border border-slate-100 hover:border-toped-500 rounded-2xl p-3 flex flex-col justify-between shadow-sm active:scale-95 cursor-pointer transition group">
+                    <div>
+                        <span class="text-[9px] font-mono font-bold text-slate-400 uppercase block mb-1">${item.kode_produk}</span>
+                        <h4 class="text-xs font-bold text-slate-800 line-clamp-2 group-hover:text-toped-600 transition">${item.nama_produk}</h4>
+                    </div>
+                    <div class="mt-3 pt-2 border-t border-slate-50 flex items-center justify-between">
+                        <span class="text-xs font-extrabold text-toped-600">Rp ${Number(item.harga_jual).toLocaleString('id-ID')}</span>
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        // CUSTOMER SEARCH
+
+const customerSearch =
+document.getElementById('customer-search');
+
+customerSearch.addEventListener('input', function() {
+
+    const keyword =
+    this.value.toLowerCase().trim();
+
+    const resultBox =
+    document.getElementById('customer-result');
+
+    if (keyword.length < 2)
+    {
+        resultBox.classList.add('hidden');
+        resultBox.innerHTML = '';
+        return;
+    }
+
+    const hasil = customerList
+        .filter(c =>
+            c.nama_customer
+                .toLowerCase()
+                .includes(keyword)
+        )
+        .slice(0, 10);
+
+    if (hasil.length === 0)
+    {
+        resultBox.classList.remove('hidden');
+
+        resultBox.innerHTML = `
+            <div class="p-2 text-xs text-slate-500">
+                Customer tidak ditemukan
+            </div>
+        `;
+
+        return;
+    }
+
+    resultBox.classList.remove('hidden');
+
+    resultBox.innerHTML =
+        hasil.map(c => `
+            <div
+                onclick="selectCustomer('${c.customer_id}')"
+                class="p-2 text-xs border rounded-lg cursor-pointer hover:bg-green-50">
+
+                ${c.nama_customer}
+
+            </div>
+        `).join('');
+});
+
+        const searchInput = document.getElementById('barcode-input');
+        searchInput.addEventListener('input', function(e) {
+            const keyword = e.target.value.toLowerCase().trim();
+            if (produkMap[keyword]) {
+                addToCart(keyword);
+                searchInput.value = '';
+                return;
+            }
+            const filtered = produkList.filter(p => 
+                p.nama_produk.toLowerCase().includes(keyword) || 
+                p.kode_produk.toLowerCase().includes(keyword)
+            );
+            renderProductGrid(filtered);
+        });
+
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const val = this.value.trim();
+                if (produkMap[val]) {
+                    addToCart(val);
+                    this.value = '';
+                }
+            }
+        });
+
+        function selectCustomer(id)
+{
+    selectedCustomer =
+    customerList.find(
+        x => x.customer_id == id
+    );
+
+    if (!selectedCustomer)
+    {
+        return;
+    }
+
+    document.getElementById(
+        'selected-customer-name'
+    ).innerText =
+    selectedCustomer.nama_customer;
+
+    document.getElementById(
+        'customer-search'
+    ).value =
+    selectedCustomer.nama_customer;
+
+    document.getElementById(
+        'customer-result'
+    ).innerHTML = '';
+
+    document.getElementById(
+        'customer-result'
+    ).classList.add('hidden');
+}
+
+        function addToCart(kode) {
+            const product = produkMap[kode];
+            console.log(product);
+console.log('stok_gudang =', product.stok_gudang);
+            if (!product) return;
+
+            if (product.stok_gudang <= 0) {
+showError('Stok produk habis!');
+    return;
+}
+
+            if (cart[kode]) {
+if (cart[kode].qty >= Number(product.stok_gudang)) {
+showError('Stok tidak mencukupi!');
+    return;
+}
+                cart[kode].qty += 1;
+            } else {
+                cart[kode] = { ...product, qty: 1 };
+            }
+            renderCart();
+        }
+
+        function changeQty(kode, delta) {
+            if (!cart[kode]) return;
+            cart[kode].qty += delta;
+            if (cart[kode].qty <= 0) delete cart[kode];
+            renderCart();
+        }
+
+        function clearCart() {
+            cart = {};
+            renderCart();
+        }
+
+        function toggleMobileCart() {
+
+    const cartSection =
+        document.getElementById('cart-section');
+
+    const mobileButton =
+        document.getElementById(
+            'mobile-cart-button'
+        );
+
+    cartSection.classList.toggle(
+        'hidden'
+    );
+
+    if (
+        cartSection.classList.contains(
+            'hidden'
+        )
+    ) {
+
+        mobileButton.classList.remove(
+            'hidden'
+        );
+
+    } else {
+
+        mobileButton.classList.add(
+            'hidden'
+        );
+
+    }
+}
+
+        function renderCart() {
+            const cartList = document.getElementById('cart-list');
+            const keys = Object.keys(cart);
+
+            let totalQty = 0;
+            let grandTotal = 0;
+
+            if (keys.length === 0) {
+                cartList.innerHTML = `<div class="py-16 text-center text-slate-400 text-xs">Keranjang masih kosong.<br>Silakan pilih produk di katalog.</div>`;
+                document.getElementById('total-qty').innerText = '0 Pcs';
+                document.getElementById('grand-total').innerText = 'Rp 0';
+                document.getElementById('mobile-cart-count').innerText = '0 Item';
+                document.getElementById('mobile-cart-total').innerText = 'Rp 0';
+                return;
+            }
+
+            cartList.innerHTML = keys.map(kode => {
+                const item = cart[kode];
+                const subtotal = item.harga_jual * item.qty;
+                totalQty += item.qty;
+                grandTotal += subtotal;
+
+                return `
+                    <div class="py-2.5 flex items-center justify-between gap-2">
+                        <div class="flex-1 min-w-0">
+                            <h5 class="text-xs font-bold text-slate-800 line-clamp-1">${item.nama_produk}</h5>
+                            <p class="text-[11px] font-semibold text-toped-600">Rp ${Number(item.harga_jual).toLocaleString('id-ID')}</p>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <div class="flex items-center border border-slate-200 rounded-lg overflow-hidden bg-slate-50 shadow-sm">
+                                <button onclick="changeQty('${kode}', -1)" class="px-2 py-1 bg-white hover:bg-slate-100 text-slate-600 text-xs font-bold transition">-</button>
+                                <span class="px-2.5 text-xs font-bold text-slate-700">${item.qty}</span>
+                                <button onclick="changeQty('${kode}', 1)" class="px-2 py-1 bg-white hover:bg-slate-100 text-slate-600 text-xs font-bold transition">+</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('total-qty').innerText = `${totalQty} Pcs`;
+            document.getElementById('grand-total').innerText = `Rp ${grandTotal.toLocaleString('id-ID')}`;
+            document.getElementById('mobile-cart-count').innerText = `${totalQty} Item`;
+document.getElementById('mobile-cart-total').innerText =
+    `Rp ${grandTotal.toLocaleString('id-ID')}`;
+
+cartList.scrollTo({
+    top: cartList.scrollHeight,
+    behavior: 'smooth'
+});
+
+lucide.createIcons();
+        }
+
+        function closePaymentModal()
+{
+    document
+        .getElementById('payment-modal')
+        .classList
+        .add('hidden');
+}
+
+function processCheckout()
+{
+    if (Object.keys(cart).length === 0)
+    {
+showError('Keranjang kosong');
+        return;
+    }
+
+    let total = 0;
+
+    Object.values(cart).forEach(item => {
+        total += item.qty * item.harga_jual;
+    });
+
+    currentTotal = total;
+
+    document.getElementById(
+        'payment-total-nota'
+    ).innerText =
+        'Rp ' +
+        total.toLocaleString('id-ID');
+
+    hitungGrandTotalModal();
+
+    document.getElementById(
+    'payment-customer'
+).innerText =
+    selectedCustomer
+        ? selectedCustomer.nama_customer
+        : 'UMUM';
+
+    document
+        .getElementById('payment-modal')
+        .classList
+        .remove('hidden');
+}
+
+function hitungGrandTotalModal()
+{
+    const diskon =
+        parseFloat(
+            document.getElementById('diskon').value
+        ) || 0;
+
+    const ppn =
+        parseFloat(
+            document.getElementById('ppn').value
+        ) || 0;
+
+    const subtotal =
+        currentTotal - diskon;
+
+    const grandTotal =
+        subtotal +
+        ((subtotal * ppn) / 100);
+
+    document.getElementById(
+        'grand-total-modal'
+    ).innerText =
+        'Rp ' +
+        grandTotal.toLocaleString('id-ID');
+
+    return grandTotal;
+}
+
+
+function hitungKembalianModal()
+{
+    const grandTotal =
+        hitungGrandTotalModal();
+
+    const tunai =
+        parseFloat(
+            document.getElementById('bayar-tunai').value
+        ) || 0;
+
+    const kartu =
+        parseFloat(
+            document.getElementById('bayar-kartu').value
+        ) || 0;
+
+    const kembali =
+        (tunai + kartu) - grandTotal;
+
+    document.getElementById(
+        'kembalian'
+    ).innerText =
+        'Rp ' +
+        Math.max(kembali, 0)
+        .toLocaleString('id-ID');
+}
+
+//otomatis isi nominal kartu
+document.getElementById(
+    'jenis-kartu'
+).addEventListener('change', function () {
+
+    const total =
+        hitungGrandTotalModal();
+
+    if (this.value)
+    {
+        document.getElementById(
+            'bayar-kartu'
+        ).value = total;
+
+        document.getElementById(
+            'bayar-tunai'
+        ).value = 0;
+
+        hitungKembalianModal();
+    }
+
+});
+
+
+document.getElementById(
+    'bayar-tunai'
+).addEventListener('input', function () {
+
+    if (
+        Number(this.value) > 0
+    )
+    {
+        document.getElementById(
+            'bayar-kartu'
+        ).value = 0;
+
+        document.getElementById(
+            'jenis-kartu'
+        ).value = '';
+
+        document.getElementById(
+            'nomor-kartu'
+        ).value = '';
+
+        hitungKembalianModal();
+    }
+
+});
+
+ document.getElementById(
+    'is-piutang'
+).addEventListener('change', function () {
+
+    const piutang =
+        this.checked;
+
+    document.getElementById(
+        'bayar-tunai'
+    ).value = 0;
+
+    document.getElementById(
+        'bayar-kartu'
+    ).value = 0;
+
+    document.getElementById(
+        'bayar-tunai'
+    ).disabled = piutang;
+
+    document.getElementById(
+        'bayar-kartu'
+    ).disabled = piutang;
+
+    document.getElementById(
+        'jenis-kartu'
+    ).disabled = piutang;
+
+    document.getElementById(
+        'nomor-kartu'
+    ).disabled = piutang;
+
+    hitungKembalianModal();
+});
+
+function printRawBT(jualId)
+{
+    fetch('/kasir/print/' + jualId)
+        .then(res => res.text())
+        .then(text => {
+
+            window.location.href =
+                'rawbt:text:' +
+                encodeURIComponent(text);
+
+        });
+}
+
+function saveTransaction()
+{
+        // VALIDASI PEMBAYARAN KARTU
+    if (
+        Number(
+            document.getElementById(
+                'bayar-kartu'
+            ).value
+        ) > 0
+        &&
+        !document.getElementById(
+            'jenis-kartu'
+        ).value
+    )
+    {
+        showError('Pilih jenis kartu');
+        return;
+    }
+
+    //validasi
+    const bayarTunai =
+    Number(
+        document.getElementById(
+            'bayar-tunai'
+        ).value
+    ) || 0;
+
+const bayarKartu =
+    Number(
+        document.getElementById(
+            'bayar-kartu'
+        ).value
+    ) || 0;
+
+const isPiutang =
+    document.getElementById(
+        'is-piutang'
+    ).checked;
+
+if (
+    bayarTunai > 0 &&
+    bayarKartu > 0
+)
+{
+showError(
+    'Pilih salah satu pembayaran: Tunai atau Kartu/QRIS'
+);
+
+
+    return;
+}
+
+if (
+    !isPiutang &&
+    bayarTunai <= 0 &&
+    bayarKartu <= 0
+)
+{
+showError(
+    'Masukkan nominal pembayaran'
+);
+
+    return;
+}
+
+//validasi tidak boleh pembayaran kurang dari grand total
+
+const grandTotal =
+    hitungGrandTotalModal();
+
+if (
+    !isPiutang &&
+    (bayarTunai + bayarKartu)
+    < grandTotal
+)
+
+{
+showError(
+    'Nominal pembayaran kurang dari Grand Total'
+);
+
+    return;
+}
+
+if (
+    isPiutang &&
+    !selectedCustomer
+)
+{
+    showError(
+        'Pilih customer terlebih dahulu untuk transaksi piutang'
+    );
+
+    return;
+}
+
+    const data = {
+
+     is_piutang: isPiutang,
+
+   
+
+        customer_id:
+            selectedCustomer
+                ? selectedCustomer.customer_id
+                : null,
+
+        diskon:
+            Number(
+                document.getElementById('diskon').value
+            ),
+
+        ppn:
+            Number(
+                document.getElementById('ppn').value
+            ),
+
+        total_nota:
+            currentTotal,
+
+        total_pelunasan:
+            hitungGrandTotalModal(),
+
+        bayar_tunai:
+            Number(
+                document.getElementById('bayar-tunai').value
+            ),
+
+        bayar_kartu:
+            Number(
+                document.getElementById('bayar-kartu').value
+            ),
+
+        kartu_id:
+            document.getElementById(
+                'jenis-kartu'
+            ).value,
+
+        nomor_kartu:
+            document.getElementById(
+                'nomor-kartu'
+            ).value,
+
+        items:
+            Object.values(cart).map(item => ({
+
+                produk_id:
+                    item.produk_id,
+
+                harga_beli:
+                    item.harga_beli,
+
+                harga_jual:
+                    item.harga_jual,
+
+                jumlah:
+                    item.qty,
+
+                diskon: 0
+
+            }))
+    };
+console.log(data.items);
+console.log(data);
+
+if (isSaving)
+{
+    return;
+}
+
+isSaving = true;
+
+const btn =
+    document.getElementById(
+        'btn-simpan'
+    );
+
+if (btn)
+{
+    btn.disabled = true;
+    btn.innerHTML = 'Menyimpan...';
+}
+
+fetch('/kasir/checkout', {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': document
+            .querySelector('meta[name="csrf-token"]')
+            .content
+    },
+    body: JSON.stringify(data)
+})
+.then(res => res.json())
+.then(res => {
+
+    isSaving = false;
+
+    if (btn)
+    {
+        btn.disabled = false;
+        btn.innerHTML = 'Simpan';
+    }
+
+    console.log(res);
+
+    if (res.success)
+{
+    showSuccess(
+        'Transaksi berhasil disimpan'
+    );
+
+printRawBT(res.jual_id);
+
+
+
+    cart = {};
+
+    renderCart();
+
+    closePaymentModal();
+
+    selectedCustomer = null;
+
+    document.getElementById(
+        'customer-search'
+    ).value = '';
+
+    document.getElementById(
+        'selected-customer-name'
+    ).innerText = 'UMUM';
+
+    // reset pembayaran
+    document.getElementById(
+        'bayar-tunai'
+    ).value = 0;
+
+    document.getElementById(
+        'bayar-kartu'
+    ).value = 0;
+
+    document.getElementById(
+        'nomor-kartu'
+    ).value = '';
+
+    document.getElementById(
+        'jenis-kartu'
+    ).value = '';
+
+    // reset diskon dan ppn
+    document.getElementById(
+        'diskon'
+    ).value = 0;
+
+    document.getElementById(
+        'ppn'
+    ).value = 0;
+
+    // reset piutang
+    document.getElementById(
+        'is-piutang'
+    ).checked = false;
+
+    // aktifkan kembali field pembayaran
+    document.getElementById(
+        'bayar-tunai'
+    ).disabled = false;
+
+    document.getElementById(
+        'bayar-kartu'
+    ).disabled = false;
+
+    document.getElementById(
+        'jenis-kartu'
+    ).disabled = false;
+
+    document.getElementById(
+        'nomor-kartu'
+    ).disabled = false;
+
+    // reset tampilan total
+    document.getElementById(
+        'payment-total-nota'
+    ).innerText = 'Rp 0';
+
+    document.getElementById(
+        'grand-total-modal'
+    ).innerText = 'Rp 0';
+
+    document.getElementById(
+        'kembalian'
+    ).innerText = 'Rp 0';
+
+    currentTotal = 0;
+}
+
+})
+.catch(async err => {
+
+    isSaving = false;
+
+    const btn =
+        document.getElementById(
+            'btn-simpan'
+        );
+
+    if (btn)
+    {
+        btn.disabled = false;
+        btn.innerHTML = 'Simpan';
+    }
+
+    console.error(err);
+
+
+    try {
+
+        const res =
+            await err.json();
+
+showError(
+    res.message ||
+    'Gagal menyimpan transaksi'
+);
+
+    } catch {
+
+showError(
+    'Gagal menyimpan transaksi'
+);
+
+    }
+
+});
+}
+
+fetch('/api/kartu')
+    .then(res => res.json())
+    .then(data => {
+
+        const select =
+            document.getElementById(
+                'jenis-kartu'
+            );
+
+        select.innerHTML =
+            '<option value="">Pilih Kartu</option>';
+
+        data.forEach(kartu => {
+
+            select.innerHTML += `
+                <option value="${kartu.kartu_id}">
+                    ${kartu.nama_kartu}
+                </option>
+            `;
+
+        });
+
+    });
+
+    
+
+
+function showError(message)
+{
+    Swal.fire({
+        icon: 'error',
+        title: 'Transaksi Gagal',
+        text: message,
+        confirmButtonColor: '#dc2626'
+    });
+}
+
+function showSuccess(message)
+{
+    Swal.fire({
+        icon: 'success',
+        title: 'Berhasil',
+        text: message,
+        confirmButtonColor: '#16a34a'
+    });
+}
+
+
+
+window.saveTransaction =
+    saveTransaction;
+
+document.addEventListener('input', function(e) {
+
+    if (
+        e.target.id === 'diskon' ||
+        e.target.id === 'ppn' ||
+        e.target.id === 'bayar-tunai' ||
+        e.target.id === 'bayar-kartu'
+    ) {
+        hitungKembalianModal();
+    }
+
+});
+
+
+
+        lucide.createIcons();
+
+        window.clearCart = clearCart;
+window.toggleMobileCart = toggleMobileCart;
+window.processCheckout = processCheckout;
+window.closePaymentModal = closePaymentModal;
+window.addToCart = addToCart;
+window.changeQty = changeQty;
+window.selectCustomer = selectCustomer;
+
+    console.log(
+        "%c © 2026 akangtekno. All rights reserved. %c \nInformasi Kontak: support@akangtekno.id | Lisensi Resmi Terdaftar.",
+        "background: #1e1e3f; color: #38bdf8; padding: 6px 12px; font-weight: bold; border-radius: 4px 0 0 4px; font-size: 13px;",
+        "background: #0f172a; color: #94a3b8; padding: 6px 12px; border-radius: 0 4px 4px 0; font-size: 12px;"
+    );
+
