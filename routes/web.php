@@ -11,6 +11,8 @@ use App\Models\Customer;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use App\Http\Controllers\LaporanShiftOperasionalController;
+use App\Http\Controllers\LaporanPenjualanController;
+use App\Http\Controllers\SettingController;
 
 /*
 |--------------------------------------------------------------------------
@@ -29,28 +31,46 @@ Route::post('/login', [LoginController::class, 'authenticate']);
 Route::get('/logout', [LoginController::class, 'logout']);
 
 // Group Route yang Membutuhkan Middleware Login
-Route::middleware(['pos.auth'])->group(function () {
+Route::middleware([
+    'license',
+    'pos.auth'
+])->group(function () {
+
     Route::get('/dashboard', [DashboardController::class, 'index']);
+
     Route::get('/produk', [ProdukController::class, 'index']);
-    Route::get('/produk/tambah', [ProdukController::class, 'create'])
-        ->name('produk.create');
 
-    Route::post('/produk/simpan', [ProdukController::class, 'store'])
-        ->name('produk.store');
-    
-    // EDIT PRODUK
-    Route::get('/produk/edit/{id}', [ProdukController::class, 'edit'])
-        ->name('produk.edit');
-    
-    Route::put('/produk/update/{id}', [ProdukController::class, 'update'])
-    ->name('produk.update');
+    Route::get('/produk', [ProdukController::class, 'index']);
 
-     // HAPUS PRODUK
-    Route::post('/produk/hapus/{id}', [ProdukController::class, 'destroy'])
-        ->name('produk.destroy');
+Route::get(
+    '/produk/tambah',
+    [ProdukController::class, 'create']
+)->name('produk.create');
+
+Route::post(
+    '/produk/simpan',
+    [ProdukController::class, 'store']
+)->name('produk.store');
+
+Route::get(
+    '/produk/edit/{id}',
+    [ProdukController::class, 'edit']
+)->name('produk.edit');
+
+Route::put(
+    '/produk/update/{id}',
+    [ProdukController::class, 'update']
+)->name('produk.update');
+
+Route::post(
+    '/produk/hapus/{id}',
+    [ProdukController::class, 'destroy'
+])->name('produk.destroy');
+
 
     Route::get('/customer', [CustomerController::class, 'index']);
-        Route::get(
+
+    Route::get(
         '/laporan/shift-operasional',
         [LaporanShiftOperasionalController::class, 'index']
     );
@@ -59,19 +79,63 @@ Route::middleware(['pos.auth'])->group(function () {
         '/laporan/shift-operasional',
         [LaporanShiftOperasionalController::class, 'generate']
     );
+
+    Route::get(
+    '/laporan/penjualan-produk',
+    [LaporanPenjualanController::class, 'index']
+)->name('laporan.penjualan');
+});
+
+
+
+
+Route::middleware([
+    'license',
+    'pos.auth:Administrator,Owner'
+])->group(function () {
+
+    Route::get(
+        '/setting',
+        [SettingController::class, 'index']
+    )->name('setting.index');
+
+    Route::get(
+        '/setting/shift',
+        [SettingController::class, 'shift']
+    )->name('setting.shift');
+
+    Route::get(
+        '/setting/kartu',
+        [SettingController::class, 'kartu']
+    )->name('setting.kartu');
+
+    Route::post(
+        '/setting/kartu/simpan',
+        [SettingController::class, 'storeKartu']
+    )->name('setting.kartu.store');
+
+    Route::put(
+        '/setting/kartu/update/{id}',
+        [SettingController::class, 'updateKartu']
+    )->name('setting.kartu.update');
+
+    Route::post(
+        '/setting/kartu/hapus/{id}',
+        [SettingController::class, 'destroyKartu']
+    )->name('setting.kartu.destroy');
 });
 
 
 Route::get(
     '/kasir',
     [KasirController::class, 'index']
-)->middleware('pos.auth');
+)->middleware(['license','pos.auth']);
 
 Route::post(
     '/kasir/checkout',
     [KasirController::class, 'checkout']
-)
-->middleware('pos.auth');
+)->middleware(['license','pos.auth']);
+
 
 // API PRODUK
 // Route::get('/api/produk-kasir', function () {

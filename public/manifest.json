@@ -1,5 +1,5 @@
 {
-    "name": "POS KOPKAR RSPB",
+    "name": "IPOSAKANGTEKNO",
     "short_name": "POS",
     "start_url": "/kasir?source=pwa",
     "id": "/kasir",
@@ -9,12 +9,12 @@
     "theme_color": "#03ac0e",
     "icons": [
         {
-            "src": "/images/koperasi.png",
+            "src": "/images/login22.png",
             "sizes": "192x192",
             "type": "image/png"
         },
         {
-            "src": "/images/koperasi.png",
+            "src": "/images/login22.png",
             "sizes": "512x512",
             "type": "image/png"
         }

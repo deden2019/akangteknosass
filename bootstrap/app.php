@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
     $middleware->alias([
         'pos.auth' => \App\Http\Middleware\PosAuth::class,
+        'license' => \App\Http\Middleware\CheckLicense::class,
     ]);
 
 })

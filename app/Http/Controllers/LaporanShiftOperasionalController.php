@@ -63,46 +63,57 @@ public function generate(Request $request)
 
     $shiftId = $request->shift_id;
 
-    switch ($shiftId)
-    {
-        case 'cd0c46ea-64f2-4737-8fcd-40b5963a5543':
+    $shiftData = DB::table('m_shift')
+    ->where('shift_id', $shiftId)
+    ->first();
 
-            $mulai =
-                Carbon::parse($tanggal)
-                ->setTime(7,0);
+if (!$shiftData) {
+    return back()->with(
+        'error',
+        'Data shift tidak ditemukan'
+    );
+}
 
-            $selesai =
-                Carbon::parse($tanggal)
-                ->setTime(15,0);
+switch (strtoupper($shiftData->nama_shift))
+{
+    case 'SHIFT PAGI':
 
-            break;
+        $mulai = Carbon::parse($tanggal)
+            ->setTime(7, 0);
 
-        case '9352cbc2-ca26-460b-af82-26c4063e2b9e':
+        $selesai = Carbon::parse($tanggal)
+            ->setTime(15, 0);
 
-            $mulai =
-                Carbon::parse($tanggal)
-                ->setTime(15,0);
+        break;
 
-            $selesai =
-                Carbon::parse($tanggal)
-                ->setTime(22,0);
+    case 'SHIFT SORE':
 
-            break;
+        $mulai = Carbon::parse($tanggal)
+            ->setTime(15, 0);
 
-        case '9b8862c0-5807-4923-b87c-e217ca3a1a98':
+        $selesai = Carbon::parse($tanggal)
+            ->setTime(22, 0);
 
-            $mulai =
-                Carbon::parse($tanggal)
-                ->setTime(22,0);
+        break;
 
-            $selesai =
-                Carbon::parse($tanggal)
-                ->addDay()
-                ->setTime(7,0);
+    case 'SHIFT MALAM':
 
-            break;
-    }
+        $mulai = Carbon::parse($tanggal)
+            ->setTime(22, 0);
 
+        $selesai = Carbon::parse($tanggal)
+            ->addDay()
+            ->setTime(7, 0);
+
+        break;
+
+    default:
+
+        return back()->with(
+            'error',
+            'Shift tidak ditemukan'
+        );
+}
 $namaKasir = DB::table('m_pengguna')
     ->where('pengguna_id', $kasirId)
     ->value('nama_pengguna');
